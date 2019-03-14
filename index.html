@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Pseudo Rullo</title>
+</head>
+<style>
+    *{
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    a{
+        text-decoration: none;
+    }
+    body{
+        background-color: #1a1a1a;
+    }
+    #wrapper{
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+    }
+    #gameboard{
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        margin: 44px;
+    }
+    #gameboard:before,
+    #gameboard:after{
+        content: '';
+        position: absolute;
+        display: block;
+    }
+    .sum,
+    .cell{
+        width: 40px;
+        height: 40px;
+        text-align: center;
+        line-height: 40px;
+        font-size: 18px;
+        font-weight: 700;
+        margin: 2px;
+        border-radius: 50%;
+    }
+    .cell{
+        background-color: rgb(163, 10, 68);
+        border: 1px solid transparent;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    .sum{
+        color: yellow;
+    }
+    .active{
+        background-color: transparent;
+        color: rgb(163, 10, 68);
+        border-color: rgb(163, 10, 68);
+    }
+    .correctly{
+        background-color: yellow;
+        color: black;
+    }
+    #menu{
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 10;
+        text-align: center;
+    }
+    #menu a{
+        color: #ffffff;
+        display: inline-block;
+        padding: 10px;
+        font-size: 18px;
+        font-weight: 700;
+    }
+</style>
+<body>
+    <div id="menu">
+        <nav>
+            <a href="#" class="menu-item" data-action="newGame">Нова гра</a>
+            <a href="#" class="menu-item" data-action="restart">Рестарт</a>
+        </nav>
+    </div>
+    <div id="wrapper">
+        <div id="gameboard"></div>
+    </div>
+    <script type="text/javascript">
+        'use strict'
+        var gameboard = document.getElementById('gameboard');
+        var cell = document.createElement('div');
+        var sum = document.createElement('div');
+        var mirror;
+        var sumElements = new Array();
+        var correctArray;
+        var width = 0;
+        cell.className = 'cell';
+        sum.className = 'sum';
+
+        function createGameboard(count, arr = 0){
+            gameboard.innerHTML = '';
+            if(count > 12 || count < 4){
+                console.log('%c Щось не так з розміром(', 'color: red; font-style: italic');
+                return false;
+            }
+            
+            if(!arr){
+                width = count;
+                mirror = new Array();
+                    for(let i = 1; i <= count; i++){
+                    mirror[i] = new Array();
+                    for(let j = 1; j <= count; j++){
+                            mirror[i][j] = getRandom();
+                    }
+                }
+            returnSum();
+            mergeSuwWithMirror();
+            fillEmptyCells();
+            }
+            renderGameBoard();
+            [].forEach.call(document.getElementsByClassName('cell'), clickLestener);
+        }
+
+        function returnSum(){
+            let sum = new Array(), sumH = new Array(), sumV = new Array();
+            for(let i = 1; i < mirror.length; i++){
+                sumH[i] = 0;
+                for(let j = 1; j < mirror[i].length; j++){
+                    if( i == 1) sumV[j] = 0;
+                    sumH[i] += mirror[i][j] ? parseInt(mirror[i][j]) : 0 ;
+                    sumV[j] += mirror[i][j] ? parseInt(mirror[i][j]) : 0 ;
+                }
+            }
+            sumV[sumV.length] = sumV[0] = '&';
+            sumElements['h'] = sumH;
+            sumElements['v'] = sumV;
+            return sumElements;
+        }
+
+        function fillEmptyCells(){
+            correctArray = JSON.parse(JSON.stringify(mirror));
+            for(let i = 1; i < mirror.length - 1; i++){
+                for(let j = 1; j < mirror.length - 1; j++){
+                    if(!mirror[i][j]){
+                        mirror[i][j] = randomNumber();
+                    }
+                }
+            }
+        }
+
+        function cheat(){
+            console.table(correctArray);
+        }
+
+        function renderGameBoard(){
+            gameboard.style.width = 44 * (mirror.length) + 'px';
+            for(let i = 0; i <= mirror.length -1; i++){
+                for(let j = 0; j <= mirror.length - 1; j++){
+                    let sumClone = sum.cloneNode(true), cellClone = cell.cloneNode(true);
+                    if(i == 0 || i == mirror.length - 1 || j == 0 || j == mirror.length - 1){
+                        sumClone.innerText = (mirror[i][j] == '&') ? '' : mirror[i][j] ;
+                        sumClone.classList.add('sum-row-'+i);
+                        sumClone.classList.add('sum-col-'+j);
+                        gameboard.insertBefore(sumClone, null);
+                   }else{
+                        cellClone.innerText = mirror[i][j];
+                        cellClone.classList.add('row-'+i);
+                        cellClone.classList.add('col-'+j);
+                        cellClone.setAttribute('data-row', i);
+                        cellClone.setAttribute('data-col', j);
+                        gameboard.insertBefore(cellClone, null);
+                    }
+                }
+            }
+        }
+
+        function mergeSuwWithMirror(){
+            for(let i = 1; i < mirror.length; i++){
+                mirror[i][0] = mirror[i][mirror[i].length] = sumElements['h'][i];
+            }
+            mirror[0] = mirror[mirror.length] = sumElements['v'];
+        }
+
+        function getRandom(){
+            return (randomNumber() > 4 ? true : false) ? randomNumber() : '' ;
+        }
+
+        function randomNumber(){
+            return (Math.floor(Math.random() * (10 - 1)) + 1);
+        }
+
+        //Змінити розмірність
+        createGameboard(5);
+
+        function clickLestener(item, i, arr){
+            item.addEventListener('click', checkedSum);
+        }
+
+        function checkedSum(elem){
+            setTimeout(500);
+            let row = this.getAttribute('data-row');
+            let col = this.getAttribute('data-col');
+            let sumInCol = document.getElementsByClassName('sum-col-'+col)[0].textContent;
+            let sumInRow = document.getElementsByClassName('sum-row-'+row)[0].textContent;
+            if(this.classList.contains('active')){
+                this.classList.remove('active');
+            }else{
+                this.classList.add('active');
+            }
+
+            setClassCorrectly('sum-col-'+col, sumInCol, localSum('col-'+col));
+            setClassCorrectly('sum-row-'+row, sumInRow, localSum('row-'+row));
+
+            if(document.getElementsByClassName('correctly').length == (width * 4)){
+                setTimeout(function(){
+                    alert('You Win!');
+                }, 1000);
+            }
+
+        }
+
+        function setClassCorrectly(className, sumLocal, sumGlobal){
+            [].forEach.call(document.getElementsByClassName(className), function(item, i, arr){
+                if(sumGlobal == sumLocal){
+                    item.classList.add('correctly');
+                }else{
+                    item.classList.remove('correctly');
+                }
+            });
+        }
+
+        function localSum(className){
+            let locSum = 0;
+            [].forEach.call(document.getElementsByClassName(className), function(item, i, arr){
+                locSum += item.classList.contains('active') ? 0 : parseInt(item.innerText);
+            });
+            return locSum;
+        }
+
+        function restart(){
+            createGameboard(width, mirror);
+        }
+
+        function isFunction(functionToCheck)  {
+            var getType = {};
+            return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
+        }
+
+        [].forEach.call(document.getElementsByClassName('menu-item'), function(item, i, arr){
+            item.addEventListener('click', function(){
+                if(isFunction(window[this.getAttribute('data-action')])) window[this.getAttribute('data-action')]();
+            });
+        });
+
+        function newGame(){
+            let count = prompt('Бажана розмірність:', 5);
+            if(count !== null){
+                width = count;
+                createGameboard(width);
+            }
+        }
+    </script>
+</body>
+</html>
