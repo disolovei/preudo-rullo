@@ -4,269 +4,372 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Pseudo Rullo</title>
-</head>
-<style>
-    *{
+    <title>Document</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        * {
         margin: 0;
         padding: 0;
         box-sizing: border-box;
-    }
-    a{
-        text-decoration: none;
-    }
-    body{
-        background-color: #1a1a1a;
-    }
-    #wrapper{
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-    }
-    #gameboard{
-        position: relative;
-        display: flex;
-        flex-wrap: wrap;
-        margin: 44px;
-    }
-    #gameboard:before,
-    #gameboard:after{
-        content: '';
-        position: absolute;
-        display: block;
-    }
-    .sum,
-    .cell{
-        width: 40px;
-        height: 40px;
-        text-align: center;
-        line-height: 40px;
-        font-size: 18px;
-        font-weight: 700;
-        margin: 2px;
-        border-radius: 50%;
-    }
-    .cell{
-        background-color: rgb(163, 10, 68);
-        border: 1px solid transparent;
-        transition: all 0.2s;
-        cursor: pointer;
-    }
-    .sum{
-        color: yellow;
-    }
-    .active{
-        background-color: transparent;
-        color: rgb(163, 10, 68);
-        border-color: rgb(163, 10, 68);
-    }
-    .correctly{
-        background-color: yellow;
-        color: black;
-    }
-    #menu{
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 10;
-        text-align: center;
-    }
-    #menu a{
-        color: #ffffff;
-        display: inline-block;
-        padding: 10px;
-        font-size: 18px;
-        font-weight: 700;
-    }
-</style>
+        }
+
+        body {
+            font-family: sans-serif;
+        }
+
+        #gameboard {
+            width: 100vw;
+            height: 100vh;
+            background-color: #171a29;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 50px;
+        }
+
+        .row {
+            white-space: nowrap;
+        }
+
+        .cell {
+            color: #fff;
+            font-weight: bold;
+            width: 50px;
+            height: 50px;
+            line-height: 50px;
+            text-align: center;
+            display: inline-block;
+            margin: 3px;
+            font-size: 1.5rem;
+            border: 2px solid #df134b;
+            transition: background-color ease .5s, box-shadow ease .3s, color ease .3s;
+        }
+
+        .cell.cell-interactive {
+            border-radius: 50%;
+            background-color: #df134b;
+            cursor: pointer;
+        }
+
+        .cell--hover {
+            color: #171a29;
+            box-shadow: 0 0 10px #df134b;
+        }
+
+        .cell:hover {
+            color: #fff;
+            background-color: #bf4c6c;
+            border-color: #bf4c6c;
+        }
+
+        .cell.selected {
+            background-color: transparent;
+            color: #fff;
+        }
+
+        .cell.cell-result {
+            background-color: transparent;
+            border-radius: 0;
+            border-color: rgba(255,255,255,.5);
+            cursor: not-allowed;
+        }
+
+        .cell.cell-placeholder {
+            background-color: transparent;
+            color: transparent;
+            border-color: transparent;
+            cursor: default;
+        }
+
+        #bottom-panel {
+            position: fixed;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            height: 50px;
+            padding: 5px;
+        }
+
+        button {
+            background-color: #df134b;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            font-size: 1.5rem;
+            padding: .5rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
 <body>
-    <div id="menu">
-        <nav>
-            <a href="#" class="menu-item" data-action="newGame">Нова гра</a>
-            <a href="#" class="menu-item" data-action="restart">Рестарт</a>
-        </nav>
+    <div id="gameboard">
+        <div id="table"></div>
     </div>
-    <div id="wrapper">
-        <div id="gameboard"></div>
+    <div id="bottom-panel">
+        <button type="button" onclick="rullo.reinit();">Refresh</button>
+        <button type="button" onclick="rullo.newGame();">New Game</button>
+        <button type="button" onclick="rullo.showResult();">Show Result</button>
     </div>
-    <script type="text/javascript">
-        'use strict'
-        var gameboard = document.getElementById('gameboard');
-        var cell = document.createElement('div');
-        var sum = document.createElement('div');
-        var mirror;
-        var sumElements = new Array();
-        var correctArray;
-        var width = 0;
-        cell.className = 'cell';
-        sum.className = 'sum';
+</body>
+<script>
+    (function(window,document){
+    'use strict';
+    var gameBoard = {
+        dimension: 0,
+        correctValues: [],
+        filledValues: [],
+        summY: [],
+        summX: [],
+        correctRows: [],
+        correctColumns: [],
+    };
 
-        function createGameboard(count, arr = 0){
-            gameboard.innerHTML = '';
-            if(count > 12 || count < 4){
-                console.log('%c Щось не так з розміром(', 'color: red; font-style: italic');
-                return false;
-            }
-            
-            if(!arr){
-                width = count;
-                mirror = new Array();
-                    for(let i = 1; i <= count; i++){
-                    mirror[i] = new Array();
-                    for(let j = 1; j <= count; j++){
-                            mirror[i][j] = getRandom();
-                    }
+    function throwCoin() {
+        return Math.random() > 0.35;
+    }
+
+    function randomValueInRange() {
+        return Math.floor(Math.random() * ( 20 - 1 ) + 1);
+    }
+
+    function getCellValue() {
+        return throwCoin() ? 0 : randomValueInRange();
+    }
+
+    function createCell(x,y,value) {
+        let cell =  document.createElement('SPAN');
+        cell.classList.add('cell', 'row-' + x, 'col-' + y, 'cell-interactive');
+        cell.innerText = value;
+        return cell;
+    }
+    
+    function generateCorrectValues() {
+        gameBoard.correctValues = [];
+        gameBoard.filledValues = [];
+        gameBoard.summX = new Array(gameBoard.dimension);
+        gameBoard.summY = new Array(gameBoard.dimension);
+        let randomValue;
+
+        for ( let x = 0; x < gameBoard.dimension; x++ ) {
+            gameBoard.correctValues[x] = [];
+            gameBoard.filledValues[x] = [];
+
+            for ( let y = 0; y < gameBoard.dimension; y++ ) {
+                randomValue = getCellValue();
+                
+                if ( 0 === randomValue ) {
+                    gameBoard.filledValues[x][y] = randomValueInRange();
+                    gameBoard.correctValues[x][y]= 0;
+                } else {
+                    gameBoard.correctValues[x][y] = gameBoard.filledValues[x][y] = randomValue;
                 }
-            returnSum();
-            mergeSuwWithMirror();
-            fillEmptyCells();
-            }
-            renderGameBoard();
-            [].forEach.call(document.getElementsByClassName('cell'), clickLestener);
-        }
-
-        function returnSum(){
-            let sum = new Array(), sumH = new Array(), sumV = new Array();
-            for(let i = 1; i < mirror.length; i++){
-                sumH[i] = 0;
-                for(let j = 1; j < mirror[i].length; j++){
-                    if( i == 1) sumV[j] = 0;
-                    sumH[i] += mirror[i][j] ? parseInt(mirror[i][j]) : 0 ;
-                    sumV[j] += mirror[i][j] ? parseInt(mirror[i][j]) : 0 ;
-                }
-            }
-            sumV[sumV.length] = sumV[0] = '&';
-            sumElements['h'] = sumH;
-            sumElements['v'] = sumV;
-            return sumElements;
-        }
-
-        function fillEmptyCells(){
-            correctArray = JSON.parse(JSON.stringify(mirror));
-            for(let i = 1; i < mirror.length - 1; i++){
-                for(let j = 1; j < mirror.length - 1; j++){
-                    if(!mirror[i][j]){
-                        mirror[i][j] = randomNumber();
-                    }
-                }
+                
+                gameBoard.summX[y] = 'undefined' === typeof gameBoard.summX[y] ? randomValue : gameBoard.summX[y]+=randomValue;
+                gameBoard.summY[x] = 'undefined' === typeof gameBoard.summY[x] ? randomValue : gameBoard.summY[x]+=randomValue;
             }
         }
+    }
 
-        function cheat(){
-            console.table(correctArray);
-        }
+    function createPlaceholderCell() {
+        let placeholderCell = document.createElement('span');
+        placeholderCell.classList.add('cell', 'cell-placeholder');
+        placeholderCell.innerText = '-';
+        return placeholderCell;
+    }
 
-        function renderGameBoard(){
-            gameboard.style.width = 44 * (mirror.length) + 'px';
-            for(let i = 0; i <= mirror.length -1; i++){
-                for(let j = 0; j <= mirror.length - 1; j++){
-                    let sumClone = sum.cloneNode(true), cellClone = cell.cloneNode(true);
-                    if(i == 0 || i == mirror.length - 1 || j == 0 || j == mirror.length - 1){
-                        sumClone.innerText = (mirror[i][j] == '&') ? '' : mirror[i][j] ;
-                        sumClone.classList.add('sum-row-'+i);
-                        sumClone.classList.add('sum-col-'+j);
-                        gameboard.insertBefore(sumClone, null);
-                   }else{
-                        cellClone.innerText = mirror[i][j];
-                        cellClone.classList.add('row-'+i);
-                        cellClone.classList.add('col-'+j);
-                        cellClone.setAttribute('data-row', i);
-                        cellClone.setAttribute('data-col', j);
-                        gameboard.insertBefore(cellClone, null);
-                    }
-                }
-            }
-        }
-
-        function mergeSuwWithMirror(){
-            for(let i = 1; i < mirror.length; i++){
-                mirror[i][0] = mirror[i][mirror[i].length] = sumElements['h'][i];
-            }
-            mirror[0] = mirror[mirror.length] = sumElements['v'];
-        }
-
-        function getRandom(){
-            return (randomNumber() > 4 ? true : false) ? randomNumber() : '' ;
-        }
-
-        function randomNumber(){
-            return (Math.floor(Math.random() * (10 - 1)) + 1);
-        }
-
-        //Змінити розмірність
-        createGameboard(5);
-
-        function clickLestener(item, i, arr){
-            item.addEventListener('click', checkedSum);
-        }
-
-        function checkedSum(elem){
-            setTimeout(500);
-            let row = this.getAttribute('data-row');
-            let col = this.getAttribute('data-col');
-            let sumInCol = document.getElementsByClassName('sum-col-'+col)[0].textContent;
-            let sumInRow = document.getElementsByClassName('sum-row-'+row)[0].textContent;
-            if(this.classList.contains('active')){
-                this.classList.remove('active');
-            }else{
-                this.classList.add('active');
+    function createResultRow() {
+        let resultRow = document.createElement('div');
+        resultRow.classList.add('row', 'r-result');
+        gameBoard.summX.map((value, index) => {
+            if ( 0 === index ) {
+                resultRow.append(createPlaceholderCell());
             }
 
-            setClassCorrectly('sum-col-'+col, sumInCol, localSum('col-'+col));
-            setClassCorrectly('sum-row-'+row, sumInRow, localSum('row-'+row));
+            let resultRowCell = document.createElement('span');
+            resultRowCell.classList.add('cell', 'cell-res-' + index, 'cell-result');
+            resultRowCell.innerText = value;
+            resultRow.append(resultRowCell);
 
-            if(document.getElementsByClassName('correctly').length == (width * 4)){
-                setTimeout(function(){
-                    alert('You Win!');
-                }, 1000);
+            if ( (gameBoard.dimension - 1) === index ) {
+                resultRow.append(createPlaceholderCell());
             }
-
-        }
-
-        function setClassCorrectly(className, sumLocal, sumGlobal){
-            [].forEach.call(document.getElementsByClassName(className), function(item, i, arr){
-                if(sumGlobal == sumLocal){
-                    item.classList.add('correctly');
-                }else{
-                    item.classList.remove('correctly');
-                }
-            });
-        }
-
-        function localSum(className){
-            let locSum = 0;
-            [].forEach.call(document.getElementsByClassName(className), function(item, i, arr){
-                locSum += item.classList.contains('active') ? 0 : parseInt(item.innerText);
-            });
-            return locSum;
-        }
-
-        function restart(){
-            createGameboard(width, mirror);
-        }
-
-        function isFunction(functionToCheck)  {
-            var getType = {};
-            return functionToCheck && getType.toString.call(functionToCheck) === '[object Function]';
-        }
-
-        [].forEach.call(document.getElementsByClassName('menu-item'), function(item, i, arr){
-            item.addEventListener('click', function(){
-                if(isFunction(window[this.getAttribute('data-action')])) window[this.getAttribute('data-action')]();
-            });
         });
 
-        function newGame(){
-            let count = prompt('Бажана розмірність:', 5);
-            if(count !== null){
-                width = count;
-                createGameboard(width);
+        return resultRow;
+    }
+
+    function createResultCell(index) {
+        let resultCell = document.createElement('span');
+        resultCell.classList.add('cell', 'cell-result');
+        resultCell.innerText = gameBoard.summY[index];
+        return resultCell;
+    }
+
+    function renderGameboard() {
+        let target = document.getElementById('table');
+        gameBoard.filledValues.map((line, x) => {
+            if ( 0 === x ) {
+                target.append(createResultRow());
             }
+
+            let row = document.createElement('div');
+            row.classList.add('row', 'r-' + x);
+            line.map((column, y) => {
+                if ( 0 === y ) {
+                    row.append(createResultCell(x));
+                }
+
+                row.append(createCell(x,y,column));
+
+                if ( (gameBoard.dimension - 1) === y ) {
+                    row.append(createResultCell(x));
+                }
+            });
+            target.append(row);
+
+            if ( ( gameBoard.dimension - 1 ) === x ) {
+                target.append(createResultRow());
+            }
+        });
+    }
+
+    function createGameBoard(size) {
+        gameBoard.dimension = 'number' === typeof size && ! isNaN(size) ? Math.min(Math.max(size, 5), 10) : 5;
+        generateCorrectValues();
+        renderGameboard();
+        addListeners();
+    }
+
+    function reducer(sum,current) {
+        return sum + ( current.classList.contains('selected') ? 0 : parseInt(current.innerText) );
+    }
+
+    function destroy() {
+        gameBoard = {
+            dimension: 0,
+            correctValues: [],
+            filledValues: [],
+            summY: [],
+            summX: [],
+            correctRows: [],
+            correctColumns: [],
+        };
+        removeListeners();
+        document.getElementById('table').innerHTML = '';
+    }
+
+    function workWithClicked() {
+        this.classList.toggle('selected');
+        let rowNumber = +this.classList[1].split('-').pop(),
+            colNumber = +this.classList[2].split('-').pop(),
+            rowTotalSum = +this.closest('.row').getElementsByClassName('cell-result')[0].innerText,
+            colTotalSum = +(document.getElementsByClassName('cell-res-' + colNumber)[0].innerText),
+            rowSubtotalSum = 0,
+            colSubtotalSum = 0;
+
+        rowSubtotalSum = [...document.getElementsByClassName(this.classList[1])].reduce(reducer, 0);
+        colSubtotalSum = [...document.getElementsByClassName(this.classList[2])].reduce(reducer, 0);
+
+        if ( rowTotalSum === rowSubtotalSum ) {
+            gameBoard.correctRows.push(rowNumber);
+        } else if ( gameBoard.correctRows.indexOf(rowNumber) !== -1 ) {
+            gameBoard.correctRows.splice(gameBoard.correctRows.indexOf(rowNumber), 1);
         }
-    </script>
-</body>
+
+        if ( colTotalSum === colSubtotalSum ) {
+            gameBoard.correctColumns.push(colNumber);
+        } else if ( gameBoard.correctColumns.indexOf(colNumber) !== -1 ) {
+            gameBoard.correctColumns.splice(gameBoard.correctColumns.indexOf(colNumber), 1);
+        }
+
+        if ( gameBoard.dimension === gameBoard.correctRows.length && gameBoard.dimension === gameBoard.correctColumns.length ) {
+            setTimeout(function(){
+                alert( 'You win!' );
+                destroy();
+            },500);
+        }
+    }
+
+    function addListeners() {
+        [...document.getElementsByClassName('cell-interactive')].map((element) => {
+            element.addEventListener('mouseover', function() {
+                [...document.getElementsByClassName(this.classList[1])].map((elem)=> {
+                    elem.classList.add('cell--hover');
+                });
+                [...document.getElementsByClassName(this.classList[2])].map((elem)=> {
+                    elem.classList.add('cell--hover');
+                });
+            });
+
+            element.addEventListener('mouseleave', function() {
+                [...document.getElementsByClassName(this.classList[1])].map((elem)=> {
+                    elem.classList.remove('cell--hover');
+                });
+                [...document.getElementsByClassName(this.classList[2])].map((elem)=> {
+                    elem.classList.remove('cell--hover');
+                });
+            });
+
+            element.addEventListener('click', workWithClicked);
+        });
+    }
+
+    function addHoverClass() {
+        [...document.getElementsByClassName(this.classList[1])].map((elem)=> {
+            elem.classList.add('cell--hover');
+        });
+        [...document.getElementsByClassName(this.classList[2])].map((elem)=> {
+            elem.classList.add('cell--hover');
+        });
+    }
+
+    function removeHoverClass() {
+        [...document.getElementsByClassName(this.classList[1])].map((elem)=> {
+            elem.classList.remove('cell--hover');
+        });
+        [...document.getElementsByClassName(this.classList[2])].map((elem)=> {
+            elem.classList.remove('cell--hover');
+        });
+    }
+
+    function toggleSelectedClass() {
+        this.classList.toggle('selected')
+    }
+
+    function removeListeners() {
+        [...document.getElementsByClassName('cell')].map((element) => {
+            element.addEventListener('mouseover', addHoverClass);
+            element.addEventListener('mouseleave', removeHoverClass);
+            element.addEventListener('click', toggleSelectedClass);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+        window.rullo = {
+            init: function(size){
+                this.destroy();
+                size = 'undefined' === typeof size ? 1 : parseInt(size);
+                createGameBoard(size);
+            },
+            destroy: destroy,
+            reinit: function(){
+                let size = gameBoard.dimension;
+                this.init(size);
+            },
+            tooltip: function(){},
+            newGame: function(){
+                let dimension = prompt('Вкажіть бажану розмірність (не менше 5)', 5);
+                if ( dimension ) {
+                    this.init(dimension.replace(/\D/ig, ''));
+                }
+            },
+            showResult: function(){
+                console.log('//TODO');
+            },
+        };
+
+        rullo.init(5);
+    });
+})(window, document);
+</script>
 </html>
