@@ -99,9 +99,78 @@
             padding: .5rem;
             cursor: pointer;
         }
+        
+        #select-level {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            border: none;
+            -webkit-appearance: none;
+            padding: 5px 15px;
+            font-family: inherit;
+            font-size: 1.3rem;
+            border-radius: 5px;
+            background-color: #df134b;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #select-level:focus, #select-level:active {
+            outline: none;
+        }
+
+        #select-level option {
+            font-size: 1rem;
+            background-color: #171a29;
+        }
+
+        #select-level option:active, #select-level option:hover {
+            background-color: #fff;
+        }
+
+        .cell.done {
+            background-color: yellow;
+            color: #171a29;
+        }
+
+        .cell.animate {
+            animation: pulse 2s infinite;
+        }
+
+        @-webkit-keyframes pulse {
+            0% {
+                -webkit-box-shadow: 0 0 0 0 rgba(204,169,44, 0.4);
+            }
+            70% {
+                -webkit-box-shadow: 0 0 0 10px rgba(204,169,44, 0);
+            }
+            100% {
+                -webkit-box-shadow: 0 0 0 0 rgba(204,169,44, 0);
+            }
+            }
+        @keyframes pulse {
+            0% {
+                -moz-box-shadow: 0 0 0 0 rgba(204,169,44, 0.4);
+                box-shadow: 0 0 0 0 rgba(204,169,44, 0.4);
+            }
+            70% {
+                -moz-box-shadow: 0 0 0 10px rgba(204,169,44, 0);
+                box-shadow: 0 0 0 10px rgba(204,169,44, 0);
+            }
+            100% {
+                -moz-box-shadow: 0 0 0 0 rgba(204,169,44, 0);
+                box-shadow: 0 0 0 0 rgba(204,169,44, 0);
+            }
+        }
     </style>
 </head>
 <body>
+    <select name="selec-level" id="select-level">
+        <option value="1" selected="selected">Junior</option>
+        <option value="2">Middle</option>
+        <option value="3">Senior</option>
+    </select>
     <div id="gameboard">
         <div id="table"></div>
     </div>
@@ -114,7 +183,7 @@
 <script>
     (function(window,document){
     'use strict';
-    var gameBoard = {
+    let gameBoard = {
         dimension: 0,
         correctValues: [],
         filledValues: [],
@@ -122,7 +191,10 @@
         summX: [],
         correctRows: [],
         correctColumns: [],
+        level: 1,
     };
+
+    let timeout = null;
 
     function throwCoin() {
         return Math.random() > 0.35;
@@ -234,7 +306,8 @@
     }
 
     function createGameBoard(size) {
-        gameBoard.dimension = 'number' === typeof size && ! isNaN(size) ? Math.min(Math.max(size, 5), 10) : 5;
+        const minDimension = 3 === gameBoard.level ? 7 : 5;
+        gameBoard.dimension = 'number' === typeof size && ! isNaN(size) ? Math.min(Math.max(size, minDimension), 10) : minDimension;
         generateCorrectValues();
         renderGameboard();
         addListeners();
@@ -245,6 +318,7 @@
     }
 
     function destroy() {
+        const level = gameBoard.level;
         gameBoard = {
             dimension: 0,
             correctValues: [],
@@ -253,17 +327,86 @@
             summX: [],
             correctRows: [],
             correctColumns: [],
+            level,
         };
         removeListeners();
         document.getElementById('table').innerHTML = '';
+        clearTimeout(timeout);
+    }
+
+    function findCorrectCell() {
+        let row, col = 0;
+        for (let i = 0; i < gameBoard.dimension; i++) {
+            row = document.getElementsByClassName('row-' + i);
+            
+            const filtered = [...row].filter((elem) => {
+                const currCol = +elem.classList[2].split('-').pop();
+                if ( ! elem.classList.contains('selected') && gameBoard.correctValues[i][currCol] === 0 ) {
+                    col = currCol;
+                    return true;
+                }
+
+                return false;
+            });
+
+            if ( filtered.length ) {
+                return [i, col];
+            }
+        }
+
+        return null;
+    }
+
+    function openRandomCell() {
+        if (null !== timeout) {
+            clearTimeout(timeout);
+        }
+
+        const correctCell = findCorrectCell();
+
+        if (null !== correctCell) {
+            timeout = setTimeout(() => {
+                document.getElementsByClassName('row-' + [correctCell[0]] + ' col-' + correctCell[1] )[0].classList.add('animate');
+            }, 5000);
+        }
+    }
+
+    function checkAsDone(HTMLCollection) {
+        if (3 === gameBoard.level) {
+            return;
+        }
+
+        [...HTMLCollection].map(elem => {
+            if ( ! elem.classList.contains('done') ) {
+                elem.classList.add('done');
+            }
+        });
+    }
+
+    function uncheckDone(HTMLCollection) {
+        if (3 === gameBoard.level) {
+            return;
+        }
+
+        [...HTMLCollection].map(elem => {
+            if ( elem.classList.contains('done') ) {
+                elem.classList.remove('done');
+            }
+        });
     }
 
     function workWithClicked() {
+        if ( this.classList.contains('animate') ) {
+            this.classList.remove('animate');
+        }
+
         this.classList.toggle('selected');
         let rowNumber = +this.classList[1].split('-').pop(),
             colNumber = +this.classList[2].split('-').pop(),
-            rowTotalSum = +this.closest('.row').getElementsByClassName('cell-result')[0].innerText,
-            colTotalSum = +(document.getElementsByClassName('cell-res-' + colNumber)[0].innerText),
+            rowTotalCell = this.closest('.row').getElementsByClassName('cell-result'),
+            rowTotalSum = +rowTotalCell[0].innerText,
+            colTotalCell = document.getElementsByClassName('cell-res-' + colNumber),
+            colTotalSum = +colTotalCell[0].innerText,
             rowSubtotalSum = 0,
             colSubtotalSum = 0;
 
@@ -272,14 +415,18 @@
 
         if ( rowTotalSum === rowSubtotalSum ) {
             gameBoard.correctRows.push(rowNumber);
+            checkAsDone(rowTotalCell);
         } else if ( gameBoard.correctRows.indexOf(rowNumber) !== -1 ) {
             gameBoard.correctRows.splice(gameBoard.correctRows.indexOf(rowNumber), 1);
+            uncheckDone(rowTotalCell);
         }
 
         if ( colTotalSum === colSubtotalSum ) {
             gameBoard.correctColumns.push(colNumber);
+            checkAsDone(colTotalCell);
         } else if ( gameBoard.correctColumns.indexOf(colNumber) !== -1 ) {
             gameBoard.correctColumns.splice(gameBoard.correctColumns.indexOf(colNumber), 1);
+            uncheckDone(colTotalCell);
         }
 
         if ( gameBoard.dimension === gameBoard.correctRows.length && gameBoard.dimension === gameBoard.correctColumns.length ) {
@@ -288,6 +435,16 @@
                 destroy();
             },500);
         }
+
+        if ( 1 === gameBoard.level ) {
+            openRandomCell();
+        }
+    }
+
+    function changeLevel(e) {
+        const value = +this.value;
+        gameBoard.level = Math.min(3, Math.max(value, 1));
+        rullo.init(gameBoard.dimension);
     }
 
     function addListeners() {
@@ -312,6 +469,8 @@
 
             element.addEventListener('click', workWithClicked);
         });
+
+        document.getElementById('select-level').addEventListener('change', changeLevel);
     }
 
     function addHoverClass() {
@@ -338,10 +497,12 @@
 
     function removeListeners() {
         [...document.getElementsByClassName('cell')].map((element) => {
-            element.addEventListener('mouseover', addHoverClass);
-            element.addEventListener('mouseleave', removeHoverClass);
-            element.addEventListener('click', toggleSelectedClass);
+            element.removeEventListener('mouseover', addHoverClass);
+            element.removeEventListener('mouseleave', removeHoverClass);
+            element.removeEventListener('click', toggleSelectedClass);
         });
+
+        document.getElementById('select-level').removeEventListener('change', changeLevel);
     }
 
     document.addEventListener('DOMContentLoaded', function(){
